@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace Banco
 {
@@ -33,22 +32,22 @@ namespace Banco
 
     class Conta : IConta
     {
-        private int agencia;
-        private int numero;
+        private string agencia;
+        private string numero;
 
         private double saldo;
         private TIPO_CONTA tipoConta { get; set; }
         private TIPO_CLIENTE tipoCliente { get; set; }
         private List<string> listaMovimentacaoes;
 
-        Conta()
+        public Conta()
         {
             this.saldo = 0;
             this.listaMovimentacaoes = new List<string>();
         }
-        Conta(
-                int agencia,
-                int numero,
+        public Conta(
+                string agencia,
+                string numero,
                 TIPO_CONTA tipoConta,
                 TIPO_CLIENTE tipoCliente
             )
@@ -61,7 +60,7 @@ namespace Banco
             this.listaMovimentacaoes = new List<string>();
         }
 
-        public int Agencia
+        public string Agencia
         {
             get
             {
@@ -73,7 +72,7 @@ namespace Banco
             }
         }
         
-        public int Numero
+        public string Numero
         {
             get 
             {
@@ -87,6 +86,10 @@ namespace Banco
         
         public TIPO_CONTA TipoConta
         {
+            get
+            {
+                return this.tipoConta;
+            }
             set
             {
                 this.tipoConta = value;
@@ -95,6 +98,10 @@ namespace Banco
         
         public TIPO_CLIENTE TipoCliente
         { 
+            get
+            {
+                return this.tipoCliente;
+            }
             set 
             {
                 this.tipoCliente = value;
@@ -173,8 +180,8 @@ namespace Banco
         private string nome;
         private Conta conta;
 
-        Cliente() { }
-        Cliente
+        public Cliente() { }
+        public Cliente
             (
                 int codigo,
                 string nome,
@@ -234,10 +241,265 @@ namespace Banco
     class Controlador
     {
         private List<Cliente> clientes;
-        
-        Controlador()
+        private int idenficadorClientes = 1;
+
+        public Controlador()
         {
             this.clientes = new List<Cliente>();
         }
+
+        private string cabecalho()
+        {
+            return "---------------------------------------------------------------\n" +
+                   "|                         BANCO .NET                           |\n" +
+                   "---------------------------------------------------------------\n";
+        }
+        
+        private string menuPrincipal()
+        {
+            return this.cabecalho() +
+                   "Informe a opção desejada: \n" +
+                   "1-Clientes\n" +
+                   "2-Operações\n" +
+                   "3-Sair";
+        }
+
+        private string menuClientes()
+        {
+            return this.cabecalho() +
+                   "Informe a opção desejada: \n" +
+                   "1-Cadatrar\n" +
+                   "2-Alterar\n" +
+                   "3-Excluir\n" +
+                   "4-Listar todos\n" +
+                   "5-Voltar";
+        }
+        
+        private void voltarMenu()
+        {
+            char opcao = '0';
+            do
+            {
+                Console.WriteLine("Digite 1 para voltar ao menu principal");
+                opcao = Console.ReadLine().ToCharArray()[0];
+                if (opcao == '1')
+                    break;
+
+            } while (opcao != '1');
+            return;
+        }
+        
+        private Cliente getClienteDados()
+        {
+            char tipoModalidade = ' ';
+            char tipoConta = ' ';
+            string nome = "";
+            string agencia = "";
+            string numero = "";
+            TIPO_CONTA conta;
+            TIPO_CLIENTE modalidade;
+
+            Console.WriteLine("Informe seu nome: ");
+            nome = Console.ReadLine();
+
+            Console.WriteLine("Informe a modalidade da conta: (1-Pessoa física/2-Pessoa júridica)");
+            tipoModalidade = Console.ReadLine().ToCharArray()[0];
+            modalidade = tipoModalidade == '1' ? TIPO_CLIENTE.PESSOA_FISICA : TIPO_CLIENTE.PESSOA_JURICA;
+
+            Console.WriteLine("Informe o tipo de conta: (1-Corrente/2-Poupança)");
+            tipoConta = Console.ReadLine().ToCharArray()[0];
+            conta = tipoConta == '1' ? TIPO_CONTA.CORRENTE : TIPO_CONTA.POUPANCA;
+
+            Console.WriteLine("Informe a agência: (####)");
+            agencia = Console.ReadLine();
+
+            Console.WriteLine("Informe a agência: ######-#)");
+            numero = Console.ReadLine();
+
+            return new Cliente(0, nome, new Conta(agencia, numero,conta, modalidade));
+        }
+        
+        private void cadastrarCliente()
+        {
+            Console.Clear();
+            Console.WriteLine(this.cabecalho());
+            Console.WriteLine("Cadastro de clientes\n\n");
+            Cliente cliente = this.getClienteDados();
+            cliente.Codigo = this.idenficadorClientes;
+            this.clientes.Add(cliente);
+            this.idenficadorClientes++;
+        }
+        
+        private void alterarCliente()
+        {
+            int codigo = 0;
+            int indiceCliente = -1;
+            Cliente cliente;
+            Cliente clienteAlterado;
+
+            Console.Clear();
+            Console.WriteLine(this.cabecalho());
+            Console.WriteLine("Alteração de cliente\n\n");
+            Console.WriteLine("Informe o código do cliente: ");
+            codigo = Int32.Parse(Console.ReadLine());
+            indiceCliente = this.getIndiceClienteByCodigo(codigo);
+
+            if (indiceCliente >= 0)
+            {
+                cliente = this.clientes[indiceCliente];
+                Console.WriteLine($"Código cliente: {cliente.Codigo}");
+                clienteAlterado = getClienteDados();
+                cliente.Nome = clienteAlterado.Nome;
+                cliente.Conta.Agencia = clienteAlterado.Conta.Agencia;
+                cliente.Conta.Numero = clienteAlterado.Conta.Numero;
+                cliente.Conta.TipoCliente = clienteAlterado.Conta.TipoCliente;
+                cliente.Conta.TipoConta = clienteAlterado.Conta.TipoConta;
+            } else {
+                Console.WriteLine($"Nenhum usuário encontrado com o código {codigo} informado!");
+            }
+
+            this.voltarMenu();
+        }
+
+        private void excluirCliente()
+        {
+            int codigo = 0;
+            int indiceCliente = -1;
+            int opcao = -1;
+
+            Cliente cliente;
+            Console.Clear();
+            Console.WriteLine(this.cabecalho());
+            Console.WriteLine("Exclusão de cliente\n\n");
+            Console.WriteLine("Informe o código do cliente: ");
+            codigo = Int32.Parse(Console.ReadLine());
+            indiceCliente = this.getIndiceClienteByCodigo(codigo);
+            
+            if (indiceCliente >= 0)
+            {
+                cliente = this.clientes[indiceCliente];
+                this.mostrarDadosCliente(cliente);
+                Console.WriteLine("\n");
+                Console.WriteLine($"Deseja prosseguir com a exclusão do cliente de código {cliente.Codigo}? (1-Sim/2-Não)");
+                opcao = Int32.Parse(Console.ReadLine());
+                if(opcao == 1)
+                {
+                    this.clientes.Remove(cliente);
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Nenhum usuário encontrado com o código {codigo} informado!");
+            }
+
+            this.voltarMenu();
+        }
+       
+        private void listarClientes() {
+            Console.Clear();
+            Console.WriteLine(this.cabecalho());
+            Console.WriteLine("Listagem de clientes\n\n");
+            if (this.clientes.Count > 0)
+            {
+                foreach (Cliente cliente in this.clientes)
+                {
+                    this.mostrarDadosCliente(cliente);
+                    Console.WriteLine("------------------------------------");
+                }
+            } else {
+                Console.WriteLine("Sem clientes para listar!");
+            }
+            this.voltarMenu();
+        }
+        
+        private void mostrarDadosCliente(Cliente cliente)
+        {
+            Console.WriteLine($"Código: {cliente.Codigo }");
+            Console.WriteLine($"Nome: {cliente.Nome }");
+            Console.WriteLine($"Modalidade: {(cliente.Conta.TipoCliente == TIPO_CLIENTE.PESSOA_FISICA ? "Pessoa física" : "Pessoa júridica")}");
+            Console.WriteLine($"Conta: {(cliente.Conta.TipoConta == TIPO_CONTA.CORRENTE ? "Conta Corrente" : "Conta Poupança")}");
+            Console.WriteLine($"Agência: {cliente.Conta.Agencia}");
+            Console.WriteLine($"Número: {cliente.Conta.Numero}");
+        }
+        
+        private int getIndiceClienteByCodigo(int codigo)
+        {
+            int indice = -1;
+            if (this.clientes.Count > 0)
+            {
+                for (int i=0; i<=(this.clientes.Count-1); i++)
+                {
+                    if (this.clientes[0].Codigo == codigo)
+                    {
+                        indice = i;
+                        break;
+                    }
+                }
+
+            }
+
+            return indice;
+        }
+
+        private void gerenciarClientes()
+        {
+            char opcao = '0';
+            do
+            {
+                Console.Clear();
+                Console.WriteLine(this.menuClientes());
+                opcao = Console.ReadLine().ToCharArray()[0];
+                switch (opcao)
+                {
+                    case '1':
+                        this.cadastrarCliente();
+                        break;
+                    case '2':
+                        this.alterarCliente();
+                        break;
+                    case '3':
+                        this.excluirCliente();
+                        break;
+                    case '4':
+                        this.listarClientes();
+                        break;
+                    default: break;
+                }
+            } while (opcao != '5');
+
+            return;
+        }
+
+        public void gerenciar()
+        {
+            char opcao = '0';
+            do
+            {
+                Console.Clear();
+                Console.WriteLine(this.menuPrincipal());
+                opcao = Console.ReadLine().ToCharArray()[0];
+                switch (opcao)
+                {
+                    case '1':
+                        this.gerenciarClientes();
+                        break;
+                    case '2':
+                        break;
+                    default: break;
+                }
+            } while (opcao != '3');
+
+            return;
+        }
+    }
+    
+    class Principal
+    {
+        static void Main(string[] args)
+        {
+            new Controlador().gerenciar();
+        }
     }
 }
+
+

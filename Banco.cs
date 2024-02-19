@@ -4,6 +4,7 @@ using System.Collections.Generic;
 namespace Banco
 {
     /*
+     * https://www.linkedin.com/learning/c-sharp-formacao-basica
      * Criar uma classe clientes pessoa fisica e juridica
      * criar uma lista de movimentações para cada cliente
      * descontar uma taxa de 2,00 (para cada movimentação) para pessoa juridica e 1,00 (para cada movimentação) para pessoa fisica
@@ -27,7 +28,7 @@ namespace Banco
         void sacar(double valor);
         void depositar(double valor);
         void transferir(Conta contaDestino, double valor);
-        void extrato();
+        List<string> extrato();
     }
 
     class Conta : IConta
@@ -114,10 +115,10 @@ namespace Banco
             switch (this.tipoCliente)
             {
                 case TIPO_CLIENTE.PESSOA_JURICA:
-                    valor = 2.00;
+                    valor = 2.00f;
                     break;
                 case TIPO_CLIENTE.PESSOA_FISICA:
-                    valor = 1.00;
+                    valor = 1.00f;
                     break;
                 default: break;
             }
@@ -125,6 +126,14 @@ namespace Banco
             return valor;
         }
 
+        private void taxaOperacao()
+        {
+            double taxa = 0;
+            taxa = this.getValorTaxa();
+            this.setMovimentacao($"[TO] valor: {taxa}");
+            this.saldo -= taxa;
+        }
+        
         public void sacar(double valor) {
             if (valor > this.saldo)
             {
@@ -133,29 +142,31 @@ namespace Banco
             }
             this.saldo -= valor;
             this.setMovimentacao($"[SAQUE] valor: {valor}");
-            this.sacar(this.getValorTaxa());
+            this.taxaOperacao();
+            this.setMovimentacao($"Saldo: {this.saldo}");
         }
 
         public void depositar(double valor) {
+            double taxa = 0;
             this.saldo += valor;
+            taxa = this.getValorTaxa();
             this.setMovimentacao($"[DEPOSITO] valor: {valor}");
-            this.sacar(this.getValorTaxa());
+            this.taxaOperacao();
+            this.setMovimentacao($"Saldo: {this.saldo}");
         }
 
         public void transferir(Conta contaDestino, double valor)
         {
-            this.setMovimentacao($"[TED] valor: {valor} conta: [Número: {contaDestino.Numero} - Agência: {contaDestino.Agencia}]");
+            double taxa = 0;
             this.sacar(valor);
             contaDestino.depositar(valor);
+            taxa = this.getValorTaxa();
+            this.setMovimentacao($"[TED] valor: {valor} conta: [Número: {contaDestino.Numero} - Agência: {contaDestino.Agencia}]");
+            this.taxaOperacao();
+            this.setMovimentacao($"Saldo: {this.saldo}");
         }
 
-        public void extrato() {
-            this.toString();
-            Console.WriteLine($"Saldo: {this.saldo}");
-        }
-
-        public List<string> getMovimentacoes()
-        {
+        public List<string> extrato() {
             return this.listaMovimentacaoes;
         }
 
@@ -164,14 +175,13 @@ namespace Banco
             this.listaMovimentacaoes.Add(item);
         }
 
-        public void toString()
+        public string toString()
         {
-            Console.WriteLine($"Agência: {this.agencia}");
-            Console.WriteLine($"Número: {this.numero}");
-            Console.WriteLine($"Tipo conta: {this.tipoConta}");
-            Console.WriteLine($"Tipo cliente: {this.tipoCliente}");
+            return "Modalidade: " + (this.tipoCliente == TIPO_CLIENTE.PESSOA_FISICA ? "Pessoa física" : "Pessoa júridica") + "\n" +
+                   "Conta: " + (this.tipoConta == TIPO_CONTA.CORRENTE ? "Conta Corrente" : "Conta Poupança") + "\n" +
+                   "Agência: " + this.agencia + "\n" +
+                   "Número: " + this.numero;
         }
-
     }
 
     class Cliente
@@ -230,11 +240,11 @@ namespace Banco
             }
         }
 
-        public void toString()
+        public string toString()
         {
-            Console.WriteLine($"Código: {this.codigo}");
-            Console.WriteLine($"Nome: {this.nome}");
-            this.conta.toString();
+            return "Código: " + this.codigo + "\n" +
+                   "Nome: " + this.nome + "\n" +
+                   this.conta.toString();
         }
     }
 
@@ -247,7 +257,8 @@ namespace Banco
         {
             this.clientes = new List<Cliente>();
         }
-
+        
+        //Menus
         private string cabecalho()
         {
             return "---------------------------------------------------------------\n" +
@@ -268,10 +279,21 @@ namespace Banco
         {
             return this.cabecalho() +
                    "Informe a opção desejada: \n" +
-                   "1-Cadatrar\n" +
+                   "1-Cadastro\n" +
                    "2-Alterar\n" +
                    "3-Excluir\n" +
                    "4-Listar todos\n" +
+                   "5-Voltar";
+        }
+        
+        private string menuOperacoes()
+        {
+            return this.cabecalho() +
+                   "Informe a opção desejada: \n" +
+                   "1-Saque\n" +
+                   "2-Despósito\n" +
+                   "3-Transferência\n" +
+                   "4-Extrato\n" +
                    "5-Voltar";
         }
         
@@ -288,7 +310,8 @@ namespace Banco
             } while (opcao != '1');
             return;
         }
-        
+
+        //Cliente
         private Cliente getClienteDados()
         {
             char tipoModalidade = ' ';
@@ -355,7 +378,7 @@ namespace Banco
                 cliente.Conta.TipoCliente = clienteAlterado.Conta.TipoCliente;
                 cliente.Conta.TipoConta = clienteAlterado.Conta.TipoConta;
             } else {
-                Console.WriteLine($"Nenhum usuário encontrado com o código {codigo} informado!");
+                Console.WriteLine($"Nenhum cliente encontrado com o código {codigo} informado!");
             }
 
             this.voltarMenu();
@@ -378,7 +401,7 @@ namespace Banco
             if (indiceCliente >= 0)
             {
                 cliente = this.clientes[indiceCliente];
-                this.mostrarDadosCliente(cliente);
+                Console.WriteLine(cliente.toString());
                 Console.WriteLine("\n");
                 Console.WriteLine($"Deseja prosseguir com a exclusão do cliente de código {cliente.Codigo}? (1-Sim/2-Não)");
                 opcao = Int32.Parse(Console.ReadLine());
@@ -389,7 +412,7 @@ namespace Banco
             }
             else
             {
-                Console.WriteLine($"Nenhum usuário encontrado com o código {codigo} informado!");
+                Console.WriteLine($"Nenhum cliente encontrado com o código {codigo} informado!");
             }
 
             this.voltarMenu();
@@ -403,23 +426,13 @@ namespace Banco
             {
                 foreach (Cliente cliente in this.clientes)
                 {
-                    this.mostrarDadosCliente(cliente);
+                    Console.WriteLine(cliente.toString());
                     Console.WriteLine("------------------------------------");
                 }
             } else {
                 Console.WriteLine("Sem clientes para listar!");
             }
             this.voltarMenu();
-        }
-        
-        private void mostrarDadosCliente(Cliente cliente)
-        {
-            Console.WriteLine($"Código: {cliente.Codigo }");
-            Console.WriteLine($"Nome: {cliente.Nome }");
-            Console.WriteLine($"Modalidade: {(cliente.Conta.TipoCliente == TIPO_CLIENTE.PESSOA_FISICA ? "Pessoa física" : "Pessoa júridica")}");
-            Console.WriteLine($"Conta: {(cliente.Conta.TipoConta == TIPO_CONTA.CORRENTE ? "Conta Corrente" : "Conta Poupança")}");
-            Console.WriteLine($"Agência: {cliente.Conta.Agencia}");
-            Console.WriteLine($"Número: {cliente.Conta.Numero}");
         }
         
         private int getIndiceClienteByCodigo(int codigo)
@@ -440,7 +453,98 @@ namespace Banco
 
             return indice;
         }
+        
+        //Operações
+        private void sacar() {
+            int codigo = 0;
+            int indiceCliente = -1;
+            Cliente cliente;
+            double valor;
 
+            Console.Clear();
+            Console.WriteLine(this.cabecalho());
+            Console.WriteLine("Saque\n\n");
+            Console.WriteLine("Informe o código do cliente: ");
+            codigo = Int32.Parse(Console.ReadLine());
+            indiceCliente = this.getIndiceClienteByCodigo(codigo);
+
+            if (indiceCliente >= 0)
+            {
+                cliente = this.clientes[indiceCliente];
+                Console.WriteLine($"Código cliente: {cliente.Codigo}");
+                Console.WriteLine("Informe o valor de saque (####.##): ");
+                valor = Double.Parse(Console.ReadLine());
+                cliente.Conta.sacar(valor);
+            }
+            else
+            {
+                Console.WriteLine($"Nenhum cliente encontrado com o código {codigo} informado!");
+            }
+
+            this.voltarMenu();
+        }
+        
+        private void depositar() {
+            int codigo = 0;
+            int indiceCliente = -1;
+            Cliente cliente;
+            double valor;
+
+            Console.Clear();
+            Console.WriteLine(this.cabecalho());
+            Console.WriteLine("Depósito\n\n");
+            Console.WriteLine("Informe o código do cliente: ");
+            codigo = Int32.Parse(Console.ReadLine());
+            indiceCliente = this.getIndiceClienteByCodigo(codigo);
+
+            if (indiceCliente >= 0)
+            {
+                cliente = this.clientes[indiceCliente];
+                Console.WriteLine($"Código cliente: {cliente.Codigo}");
+                Console.WriteLine("Informe o valor de depósito (####.##): ");
+                valor = Double.Parse(Console.ReadLine());
+                cliente.Conta.depositar(valor);
+            }
+            else
+            {
+                Console.WriteLine($"Nenhum cliente encontrado com o código {codigo} informado!");
+            }
+
+            this.voltarMenu();
+        }
+        
+        private void transferir() { }
+        
+        private void extrato() {
+            int codigo = 0;
+            int indiceCliente = -1;
+            Cliente cliente;
+            double valor;
+
+            Console.Clear();
+            Console.WriteLine(this.cabecalho());
+            Console.WriteLine("Depósito\n\n");
+            Console.WriteLine("Informe o código do cliente: ");
+            codigo = Int32.Parse(Console.ReadLine());
+            indiceCliente = this.getIndiceClienteByCodigo(codigo);
+
+            if (indiceCliente >= 0)
+            {
+                cliente = this.clientes[indiceCliente];
+                Console.WriteLine(cliente.toString());
+                Console.WriteLine("---------------------------");
+                foreach (string item in cliente.Conta.extrato())
+                    Console.WriteLine($"{item}");
+            }
+            else
+            {
+                Console.WriteLine($"Nenhum cliente encontrado com o código {codigo} informado!");
+            }
+
+            this.voltarMenu();
+        }
+
+        //Gerenciadores
         private void gerenciarClientes()
         {
             char opcao = '0';
@@ -470,6 +574,35 @@ namespace Banco
             return;
         }
 
+        private void gerenciarOperacoes()
+        {
+            char opcao = '0';
+            do
+            {
+                Console.Clear();
+                Console.WriteLine(this.menuOperacoes());
+                opcao = Console.ReadLine().ToCharArray()[0];
+                switch (opcao)
+                {
+                    case '1':
+                        this.sacar();
+                        break;
+                    case '2':
+                        this.depositar();
+                        break;
+                    case '3':
+                        //this.transferir();
+                        break;
+                    case '4':
+                       this.extrato();
+                        break;
+                    default: break;
+                }
+            } while (opcao != '5');
+
+            return;
+        }
+
         public void gerenciar()
         {
             char opcao = '0';
@@ -484,6 +617,7 @@ namespace Banco
                         this.gerenciarClientes();
                         break;
                     case '2':
+                        this.gerenciarOperacoes();
                         break;
                     default: break;
                 }

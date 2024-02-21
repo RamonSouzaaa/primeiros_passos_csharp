@@ -12,7 +12,7 @@ namespace Banco
      * descontar uma taxa de 2,00 (para cada movimentação) para pessoa juridica e 1,00 (para cada movimentação) para pessoa fisica
      * operações saque e deposito
      */
-
+    
     interface IConta
     {
         void sacar(double valor);
@@ -111,7 +111,8 @@ namespace Banco
         private int codigo;
         private string nome;
         private Conta conta;
-        private double taxa;
+        public static char PESSOA_FISICA = '1';
+        public static char PESSOA_JURIDICA = '2';
 
         protected Cliente() { }
         protected Cliente
@@ -163,20 +164,7 @@ namespace Banco
             }
         }
 
-        protected double Taxa 
-        {
-            get 
-            {
-                return this.taxa;
-            }
-            
-            set
-            {
-                this.taxa = value;
-            }
-        }
-        
-        public string toString()
+        public virtual string toString()
         {
             return "Código: " + this.codigo + "\n" +
                    "Nome: " + this.nome + "\n" +
@@ -185,7 +173,7 @@ namespace Banco
      
         public void sacar(double valor) 
         {
-            if((valor + this.taxa) > this.conta.Saldo){
+            if(this.conta.Saldo > valor){
                 return;
             }
 
@@ -210,34 +198,51 @@ namespace Banco
             this.conta.adicionaMovimentacao($"[TRANSFERENCIA] Transferido valor: {valor} para {clienteDestino.Nome}");
         }
 
-        private void descontarTaxa()
-        {
-            this.conta.adicionaMovimentacao($"[TAXA] Desconto taxa de serviço: {this.taxa}");
-            this.conta.sacar(this.taxa);
-        }
-
+        public virtual void descontarTaxa() { }
     }
 
     class ClientePessoaJuridica : Cliente 
     {
         private const double TAXA = 2.00f;
-        public ClientePessoaJuridica() : base() {
-            base.Taxa = ClientePessoaJuridica.TAXA;
+        
+        public ClientePessoaJuridica() : base() {}
+
+        public ClientePessoaJuridica(int codigo, string nome, Conta conta) : base(codigo, nome, conta) {}
+
+        public override void descontarTaxa() 
+        {
+            base.Conta.adicionaMovimentacao($"[TAXA] Desconto taxa de serviço: {ClientePessoaJuridica.TAXA}");
+            base.Conta.sacar(ClientePessoaJuridica.TAXA);
         }
-        public ClientePessoaJuridica(int codigo, string nome, Conta conta) : base(codigo, nome, conta) {
-            base.Taxa = ClientePessoaJuridica.TAXA;
+
+        public override string ToString()
+        {
+            return base.ToString() + "\n" +
+                   "Tipo conta: Pessoa jurídica";
+            
         }
+
     }
 
     class ClientePessoaFisica : Cliente 
     {
         private const float TAXA = 1.00f;
-        public ClientePessoaFisica() : base() {
-            base.Taxa = ClientePessoaFisica.TAXA;
+
+        public ClientePessoaFisica() : base() {}
+
+        public ClientePessoaFisica(int codigo, string nome, Conta conta) : base(codigo, nome, conta) {}
+
+        public override void descontarTaxa() 
+        {
+            base.Conta.adicionaMovimentacao($"[TAXA] Desconto taxa de serviço: {ClientePessoaFisica.TAXA}");
+            base.Conta.sacar(ClientePessoaFisica.TAXA);
         }
 
-        public ClientePessoaFisica(int codigo, string nome, Conta conta) : base(codigo, nome, conta) {
-            base.Taxa = ClientePessoaFisica.TAXA;
+        public override string ToString()
+        {
+            return base.ToString() + "\n" +
+                   "Tipo conta: Pessoa física";
+
         }
     }
 
@@ -307,19 +312,21 @@ namespace Banco
         }
 
         //Cliente
-        private Cliente getClienteDados()
+        private void getClienteDados(ref Cliente cliente)
         {
-            char modalidade;
+            char modalidade = Cliente.PESSOA_FISICA;
             string nome = "";
             string agencia = "";
             string numero = "";
-            Cliente cliente;
 
             Console.WriteLine("Informe seu nome: ");
             nome = Console.ReadLine();
 
-            Console.WriteLine("Informe a modalidade da conta: (1-Pessoa física/2-Pessoa júridica)");
-            modalidade = Console.ReadLine().ToCharArray()[0];
+            if (cliente.Codigo == 0)
+            {
+                Console.WriteLine("Informe a modalidade da conta: (1-Pessoa física/2-Pessoa júridica)");
+                modalidade = Console.ReadLine().ToCharArray()[0];
+            }
 
             Console.WriteLine("Informe a agência: (####)");
             agencia = Console.ReadLine();
@@ -327,13 +334,25 @@ namespace Banco
             Console.WriteLine("Informe o número da conta: ######-#)");
             numero = Console.ReadLine();
 
-            if(modalidade == '1'){
-                cliente = new ClientePessoaFisica(0, nome, new Conta(agencia, numero));
-            } else {
-                cliente = new ClientePessoaJuridica(0, nome, new Conta(agencia, numero));
+            if(cliente.Codigo > 0)
+            {
+                cliente.Nome = nome;
+                cliente.Conta.Agencia = nome;
+                cliente.Conta.Numero = numero;
+                return;
             }
-            
-            return cliente;
+
+            if (modalidade == Cliente.PESSOA_FISICA) 
+            {
+                cliente = new ClientePessoaFisica(0, nome, new Conta(agencia, numero));
+                return;
+            }
+
+            if(modalidade == Cliente.PESSOA_JURIDICA)
+            {
+                cliente = new ClientePessoaJuridica(0, nome, new Conta(agencia, numero));
+                return;
+            }
         }
         
         private void cadastrarCliente()
@@ -341,7 +360,9 @@ namespace Banco
             Console.Clear();
             Console.WriteLine(this.cabecalho());
             Console.WriteLine("Cadastro de clientes\n\n");
-            Cliente cliente = this.getClienteDados();
+            Cliente cliente = new ClientePessoaFisica();
+            cliente.Codigo = 0;
+            this.getClienteDados(ref cliente);
             cliente.Codigo = this.idenficadorClientes;
             this.clientes.Add(cliente);
             this.idenficadorClientes++;
@@ -352,7 +373,6 @@ namespace Banco
             int codigo = 0;
             int indiceCliente = -1;
             Cliente cliente;
-            Cliente clienteAlterado;
 
             Console.Clear();
             Console.WriteLine(this.cabecalho());
@@ -365,10 +385,7 @@ namespace Banco
             {
                 cliente = this.clientes[indiceCliente];
                 Console.WriteLine($"Código cliente: {cliente.Codigo}");
-                clienteAlterado = getClienteDados();
-                cliente.Nome = clienteAlterado.Nome;
-                cliente.Conta.Agencia = clienteAlterado.Conta.Agencia;
-                cliente.Conta.Numero = clienteAlterado.Conta.Numero;;
+                this.getClienteDados(ref cliente);
             } else {
                 Console.WriteLine($"Nenhum cliente encontrado com o código {codigo} informado!");
             }
@@ -435,7 +452,7 @@ namespace Banco
             {
                 for (int i=0; i<=(this.clientes.Count-1); i++)
                 {
-                    if (this.clientes[0].Codigo == codigo)
+                    if (this.clientes[i].Codigo == codigo)
                     {
                         indice = i;
                         break;
@@ -467,8 +484,15 @@ namespace Banco
                 cliente = this.clientes[indiceCliente];
                 Console.WriteLine($"Código cliente: {cliente.Codigo}");
                 Console.WriteLine("Informe o valor de saque (####.##): ");
-                valor = Double.Parse(Console.ReadLine());
-                cliente.sacar(valor);
+                valor = Convert.ToDouble(Console.ReadLine());
+                if (cliente.Conta.Saldo < valor)
+                {
+                    Console.WriteLine("Saldo insuficiente!");
+                }
+                else
+                {
+                    cliente.sacar(valor);
+                }
             }
             else
             {

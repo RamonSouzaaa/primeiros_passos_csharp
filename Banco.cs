@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
+using System.Runtime.InteropServices;
 
 namespace Banco
 {
@@ -19,7 +21,7 @@ namespace Banco
         List<string> extrato();
     }
 
-    abstract class Conta : IConta
+    class Conta : IConta
     {
         private string agencia;
         private string numero;
@@ -31,14 +33,53 @@ namespace Banco
             this.listaMovimentacaoes = new List<string>();
         }
 
-        public void sacar(double valor) {
-            if (valor > this.saldo)
+        public Conta(
+            string agencia,
+            string numero
+        )
+        {
+            this.agencia = agencia;
+            this.numero = numero;
+            this.listaMovimentacaoes = new List<string>();
+        }
+
+        public string Agencia
+        {
+            get
             {
-                this.saldo -= valor;
+                return this.agencia;
+            }
+            set
+            {
+                this.agencia = value;
+            }
+        }
+        
+        public string Numero
+        {
+            get 
+            {
+                return this.numero;
+            }
+            set 
+            {
+                this.numero = value;
             }
         }
 
-        public void depositar(double valor) {
+        public double Saldo
+        {
+            get {
+                return this.saldo;
+            }
+        }
+
+        public void sacar(double valor) {
+            this.saldo -= valor;
+        }
+
+        public void depositar(double valor) 
+        {
             this.saldo += valor;
         }
 
@@ -48,7 +89,8 @@ namespace Banco
             contaDestino.depositar(valor);
         }
 
-        public List<string> extrato() {
+        public List<string> extrato() 
+        {
             return this.listaMovimentacaoes;
         }
 
@@ -63,25 +105,16 @@ namespace Banco
                    "Número: " + this.numero;
         }
     }
-
-    class ContaCorrente : Conta
-    {
-        
-    }
-
-    class ContaPoupanca : Conta
-    {
-
-    }
-
+    
     class Cliente
     {
         private int codigo;
         private string nome;
         private Conta conta;
+        private double taxa;
 
-        public Cliente() { }
-        public Cliente
+        protected Cliente() { }
+        protected Cliente
             (
                 int codigo,
                 string nome,
@@ -93,7 +126,7 @@ namespace Banco
             this.conta = conta;
         }
 
-        public int Codigo 
+        public int Codigo
         {
             get 
             {
@@ -130,11 +163,81 @@ namespace Banco
             }
         }
 
+        protected double Taxa 
+        {
+            get 
+            {
+                return this.taxa;
+            }
+            
+            set
+            {
+                this.taxa = value;
+            }
+        }
+        
         public string toString()
         {
             return "Código: " + this.codigo + "\n" +
                    "Nome: " + this.nome + "\n" +
                    this.conta.toString();
+        }
+     
+        public void sacar(double valor) 
+        {
+            if((valor + this.taxa) > this.conta.Saldo){
+                return;
+            }
+
+            this.descontarTaxa();
+            this.conta.sacar(valor);
+            this.conta.adicionaMovimentacao($"[SAQUE] Saque valor: {valor}");
+            this.conta.adicionaMovimentacao($"[SALDO] Saldo valor: {this.conta.Saldo}");
+        }
+
+        public void depositar(double valor) 
+        {
+            this.conta.depositar(valor);
+            this.descontarTaxa();
+            this.conta.adicionaMovimentacao($"[DEPOSITO] Depósito valor: {valor}");
+            this.conta.adicionaMovimentacao($"[SALDO] Saldo valor: {this.conta.Saldo}");
+        }
+
+        public void transferir(Cliente clienteDestino, double valor) 
+        {
+            this.descontarTaxa();
+            this.conta.transferir(clienteDestino.conta, valor);
+            this.conta.adicionaMovimentacao($"[TRANSFERENCIA] Transferido valor: {valor} para {clienteDestino.Nome}");
+        }
+
+        private void descontarTaxa()
+        {
+            this.conta.adicionaMovimentacao($"[TAXA] Desconto taxa de serviço: {this.taxa}");
+            this.conta.sacar(this.taxa);
+        }
+
+    }
+
+    class ClientePessoaJuridica : Cliente 
+    {
+        private const double TAXA = 2.00f;
+        public ClientePessoaJuridica() : base() {
+            base.Taxa = ClientePessoaJuridica.TAXA;
+        }
+        public ClientePessoaJuridica(int codigo, string nome, Conta conta) : base(codigo, nome, conta) {
+            base.Taxa = ClientePessoaJuridica.TAXA;
+        }
+    }
+
+    class ClientePessoaFisica : Cliente 
+    {
+        private const float TAXA = 1.00f;
+        public ClientePessoaFisica() : base() {
+            base.Taxa = ClientePessoaFisica.TAXA;
+        }
+
+        public ClientePessoaFisica(int codigo, string nome, Conta conta) : base(codigo, nome, conta) {
+            base.Taxa = ClientePessoaFisica.TAXA;
         }
     }
 
@@ -190,10 +293,12 @@ namespace Banco
         private void voltarMenu()
         {
             char opcao = '0';
+            string dados = "";
             do
             {
                 Console.WriteLine("Digite 1 para voltar ao menu principal");
-                opcao = Console.ReadLine().ToCharArray()[0];
+                dados = Console.ReadLine();
+                opcao = dados.Length > 0 ? dados.ToCharArray()[0] : '0';
                 if (opcao == '1')
                     break;
 
@@ -204,32 +309,31 @@ namespace Banco
         //Cliente
         private Cliente getClienteDados()
         {
-            char tipoModalidade = ' ';
-            char tipoConta = ' ';
+            char modalidade;
             string nome = "";
             string agencia = "";
             string numero = "";
-            TIPO_CONTA conta;
-            TIPO_CLIENTE modalidade;
+            Cliente cliente;
 
             Console.WriteLine("Informe seu nome: ");
             nome = Console.ReadLine();
 
             Console.WriteLine("Informe a modalidade da conta: (1-Pessoa física/2-Pessoa júridica)");
-            tipoModalidade = Console.ReadLine().ToCharArray()[0];
-            modalidade = tipoModalidade == '1' ? TIPO_CLIENTE.PESSOA_FISICA : TIPO_CLIENTE.PESSOA_JURICA;
-
-            Console.WriteLine("Informe o tipo de conta: (1-Corrente/2-Poupança)");
-            tipoConta = Console.ReadLine().ToCharArray()[0];
-            conta = tipoConta == '1' ? TIPO_CONTA.CORRENTE : TIPO_CONTA.POUPANCA;
+            modalidade = Console.ReadLine().ToCharArray()[0];
 
             Console.WriteLine("Informe a agência: (####)");
             agencia = Console.ReadLine();
 
-            Console.WriteLine("Informe a agência: ######-#)");
+            Console.WriteLine("Informe o número da conta: ######-#)");
             numero = Console.ReadLine();
 
-            return new Cliente(0, nome, new Conta(agencia, numero,conta, modalidade));
+            if(modalidade == '1'){
+                cliente = new ClientePessoaFisica(0, nome, new Conta(agencia, numero));
+            } else {
+                cliente = new ClientePessoaJuridica(0, nome, new Conta(agencia, numero));
+            }
+            
+            return cliente;
         }
         
         private void cadastrarCliente()
@@ -264,9 +368,7 @@ namespace Banco
                 clienteAlterado = getClienteDados();
                 cliente.Nome = clienteAlterado.Nome;
                 cliente.Conta.Agencia = clienteAlterado.Conta.Agencia;
-                cliente.Conta.Numero = clienteAlterado.Conta.Numero;
-                cliente.Conta.TipoCliente = clienteAlterado.Conta.TipoCliente;
-                cliente.Conta.TipoConta = clienteAlterado.Conta.TipoConta;
+                cliente.Conta.Numero = clienteAlterado.Conta.Numero;;
             } else {
                 Console.WriteLine($"Nenhum cliente encontrado com o código {codigo} informado!");
             }
@@ -308,7 +410,8 @@ namespace Banco
             this.voltarMenu();
         }
        
-        private void listarClientes() {
+        private void listarClientes() 
+        {
             Console.Clear();
             Console.WriteLine(this.cabecalho());
             Console.WriteLine("Listagem de clientes\n\n");
@@ -345,7 +448,8 @@ namespace Banco
         }
         
         //Operações
-        private void sacar() {
+        private void sacar() 
+        {
             int codigo = 0;
             int indiceCliente = -1;
             Cliente cliente;
@@ -364,7 +468,7 @@ namespace Banco
                 Console.WriteLine($"Código cliente: {cliente.Codigo}");
                 Console.WriteLine("Informe o valor de saque (####.##): ");
                 valor = Double.Parse(Console.ReadLine());
-                cliente.Conta.sacar(valor);
+                cliente.sacar(valor);
             }
             else
             {
@@ -374,7 +478,8 @@ namespace Banco
             this.voltarMenu();
         }
         
-        private void depositar() {
+        private void depositar() 
+        {
             int codigo = 0;
             int indiceCliente = -1;
             Cliente cliente;
@@ -393,7 +498,7 @@ namespace Banco
                 Console.WriteLine($"Código cliente: {cliente.Codigo}");
                 Console.WriteLine("Informe o valor de depósito (####.##): ");
                 valor = Double.Parse(Console.ReadLine());
-                cliente.Conta.depositar(valor);
+                cliente.depositar(valor);
             }
             else
             {
@@ -405,11 +510,11 @@ namespace Banco
         
         private void transferir() { }
         
-        private void extrato() {
+        private void extrato() 
+        {
             int codigo = 0;
             int indiceCliente = -1;
             Cliente cliente;
-            double valor;
 
             Console.Clear();
             Console.WriteLine(this.cabecalho());

@@ -17,7 +17,6 @@ namespace Banco
     {
         void sacar(double valor);
         void depositar(double valor);
-        void transferir(Conta contaDestino, double valor);
         List<string> extrato();
     }
 
@@ -81,12 +80,6 @@ namespace Banco
         public void depositar(double valor) 
         {
             this.saldo += valor;
-        }
-
-        public void transferir(Conta contaDestino, double valor)
-        {
-            this.sacar(valor);
-            contaDestino.depositar(valor);
         }
 
         public List<string> extrato() 
@@ -173,10 +166,6 @@ namespace Banco
      
         public void sacar(double valor) 
         {
-            if(this.conta.Saldo > valor){
-                return;
-            }
-
             this.descontarTaxa();
             this.conta.sacar(valor);
             this.conta.adicionaMovimentacao($"[SAQUE] Saque valor: {valor}");
@@ -193,9 +182,15 @@ namespace Banco
 
         public void transferir(Cliente clienteDestino, double valor) 
         {
+            
+            clienteDestino.conta.depositar(valor);
+            clienteDestino.descontarTaxa();
+            clienteDestino.conta.adicionaMovimentacao($"[TRANSFERENCIA] Recebido valor: {valor} de {this.Nome}");
+            clienteDestino.conta.adicionaMovimentacao($"[SALDO] Saldo valor: {clienteDestino.conta.Saldo}");
             this.descontarTaxa();
-            this.conta.transferir(clienteDestino.conta, valor);
+            this.conta.sacar(valor);
             this.conta.adicionaMovimentacao($"[TRANSFERENCIA] Transferido valor: {valor} para {clienteDestino.Nome}");
+            this.conta.adicionaMovimentacao($"[SALDO] Saldo valor: {this.conta.Saldo}");
         }
 
         public virtual void descontarTaxa() { }
@@ -215,9 +210,9 @@ namespace Banco
             base.Conta.sacar(ClientePessoaJuridica.TAXA);
         }
 
-        public override string ToString()
+        public override string toString()
         {
-            return base.ToString() + "\n" +
+            return base.toString() + "\n" +
                    "Tipo conta: Pessoa jurídica";
             
         }
@@ -238,9 +233,9 @@ namespace Banco
             base.Conta.sacar(ClientePessoaFisica.TAXA);
         }
 
-        public override string ToString()
+        public override string toString()
         {
-            return base.ToString() + "\n" +
+            return base.toString() + "\n" +
                    "Tipo conta: Pessoa física";
 
         }
@@ -485,14 +480,14 @@ namespace Banco
                 Console.WriteLine($"Código cliente: {cliente.Codigo}");
                 Console.WriteLine("Informe o valor de saque (####.##): ");
                 valor = Convert.ToDouble(Console.ReadLine());
-                if (cliente.Conta.Saldo < valor)
+                if(!this.hasSaldoSuficiente(cliente, valor))
                 {
                     Console.WriteLine("Saldo insuficiente!");
                 }
-                else
-                {
+                else {
                     cliente.sacar(valor);
                 }
+                
             }
             else
             {
@@ -521,7 +516,7 @@ namespace Banco
                 cliente = this.clientes[indiceCliente];
                 Console.WriteLine($"Código cliente: {cliente.Codigo}");
                 Console.WriteLine("Informe o valor de depósito (####.##): ");
-                valor = Double.Parse(Console.ReadLine());
+                valor = Convert.ToDouble(Console.ReadLine());
                 cliente.depositar(valor);
             }
             else
@@ -531,8 +526,71 @@ namespace Banco
 
             this.voltarMenu();
         }
+
+        private bool hasSaldoSuficiente(Cliente cliente, double valor)
+        {
+            return cliente.Conta.Saldo >= valor;
+        }
+
         
-        private void transferir() { }
+        private void transferir() 
+        {
+            int codigo = 0;
+            int indiceCliente = -1;
+            int opcao = -1;
+            double valor = 0;
+            Cliente cliente;
+            Cliente clienteDestino;
+
+            Console.Clear();
+            Console.WriteLine(this.cabecalho());
+            Console.WriteLine("Transferência\n\n");
+            Console.WriteLine("Informe o código do cliente: ");
+            codigo = Int32.Parse(Console.ReadLine());
+            indiceCliente = this.getIndiceClienteByCodigo(codigo);
+
+            if (indiceCliente >= 0)
+            {
+                cliente = this.clientes[indiceCliente];
+                Console.WriteLine(cliente.toString());
+                Console.WriteLine("\n");
+                Console.WriteLine($"Informe o código do cliente destino:");
+                codigo = Int32.Parse(Console.ReadLine());
+                indiceCliente = this.getIndiceClienteByCodigo(codigo);
+                if (indiceCliente >= 0)
+                {
+                    clienteDestino = this.clientes[indiceCliente];
+                    Console.WriteLine(clienteDestino.toString());
+                    Console.WriteLine("\n");
+                    Console.WriteLine("Informe o valor de tranferência (####.##): ");
+                    valor = Convert.ToDouble(Console.ReadLine());
+                    if (!this.hasSaldoSuficiente(cliente, valor))
+                    {
+                        Console.WriteLine("Saldo insuficiente!");
+                    }
+                    else
+                    {
+                        if(cliente.Conta == clienteDestino.Conta)
+                        {
+                            Console.WriteLine("Transferências não pode ser realizadas para mesma conta!");
+                        }
+                        else
+                        {
+                            cliente.transferir(clienteDestino, valor);
+                        }
+                    }
+                }
+                else{
+                    Console.WriteLine($"Nenhum cliente encontrado com o código {codigo} informado!");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Nenhum cliente encontrado com o código {codigo} informado!");
+            }
+
+            this.voltarMenu();
+        }
         
         private void extrato() 
         {
@@ -610,7 +668,7 @@ namespace Banco
                         this.depositar();
                         break;
                     case '3':
-                        //this.transferir();
+                        this.transferir();
                         break;
                     case '4':
                        this.extrato();

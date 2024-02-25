@@ -393,7 +393,6 @@ namespace Banco
             int codigo = 0;
             int indiceCliente = -1;
             int opcao = -1;
-
             Cliente cliente;
             Console.Clear();
             Console.WriteLine(this.cabecalho());
@@ -537,7 +536,6 @@ namespace Banco
         {
             int codigo = 0;
             int indiceCliente = -1;
-            int opcao = -1;
             double valor = 0;
             Cliente cliente;
             Cliente clienteDestino;
